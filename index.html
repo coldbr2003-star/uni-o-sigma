@@ -454,7 +454,7 @@
   <div class="levelup-overlay" id="levelupOverlay">
     <div class="lu-label">VOCÊ SUBIU DE NÍVEL</div>
     <div class="lu-num" id="levelupNum">2</div>
-    <div class="lu-txt">Cada vitória te transforma. O guerreiro que você é hoje não é mais o mesmo de ontem.</div>
+    <div class="lu-txt" id="levelupTxt">Cada vitória te transforma. O guerreiro que você é hoje não é mais o mesmo de ontem.</div>
     <button class="checkin-btn pending" id="levelupCloseBtn">CONTINUAR</button>
   </div>
 </div>
@@ -556,6 +556,7 @@ const db = getFirestore(fbApp);
   const statValDisciplina = document.getElementById('statValDisciplina');
   const levelupOverlay = document.getElementById('levelupOverlay');
   const levelupNum = document.getElementById('levelupNum');
+  const levelupTxt = document.getElementById('levelupTxt');
   const levelupCloseBtn = document.getElementById('levelupCloseBtn');
   const checkinBtn = document.getElementById('checkinBtn');
   const checkinHint = document.getElementById('checkinHint');
@@ -934,13 +935,46 @@ const db = getFirestore(fbApp);
 
     if(info.level > lastSeenLevel){
       lastSeenLevel = info.level;
+      const phrase = levelUpPhrases[(info.level - 2 + levelUpPhrases.length) % levelUpPhrases.length];
       levelupNum.textContent = info.level;
+      levelupTxt.textContent = phrase;
       levelupOverlay.style.display = 'flex';
       if(navigator.vibrate){ navigator.vibrate([30,40,30]); }
+      notifyLevelUp(info.level, phrase);
       try{ updateDoc(userRef, { lastSeenLevel: info.level }); }catch(e){}
     }
   }
   levelupCloseBtn.addEventListener('click', () => { levelupOverlay.style.display = 'none'; });
+
+  const levelUpPhrases = [
+    'Você não é mais quem começou essa jornada.',
+    'Cada nível é uma versão sua que a mediocridade não reconhece mais.',
+    'Isso não é sorte. É consequência.',
+    'A irmandade sente cada degrau que você sobe.',
+    'Quem para de evoluir, começa a apodrecer. Você escolheu o oposto.',
+    'Seu eu de ontem não sobreviveria ao seu eu de hoje.',
+    'Isso é o que acontece quando a disciplina vira identidade.',
+    'Poucos chegam até aqui. Menos ainda continuam.',
+    'Você está construindo algo que a preguiça nunca vai entender.',
+    'Nível novo. Cobrança nova. Sem desculpa.',
+    'O fraco vê sorte. Você sabe que é trabalho.',
+    'Isso é só o início do que você pode se tornar.'
+  ];
+
+  async function notifyLevelUp(level, phrase){
+    if(!('Notification' in window)) return;
+    try{
+      let perm = Notification.permission;
+      if(perm === 'default'){ perm = await Notification.requestPermission(); }
+      if(perm === 'granted'){
+        const crestImg = document.querySelector('.crest img');
+        new Notification('Você subiu para o nível ' + level, {
+          body: phrase,
+          icon: crestImg ? crestImg.src : undefined
+        });
+      }
+    }catch(e){}
+  }
 
   const navButtons = document.querySelectorAll('.nav-btn');
   const panels = document.querySelectorAll('.tab-panel');
