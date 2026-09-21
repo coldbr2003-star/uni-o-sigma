@@ -1056,7 +1056,7 @@ const db = getFirestore(fbApp);
         if(!typed) return;
         accessError.textContent = '';
         try{
-          const codeSnap = await getDoc(doc(db,'config','access'));
+          const codeSnap = await getDoc(doc(db,'config','acessos'));
           const validCode = codeSnap.exists() ? String(codeSnap.data().code || '').trim().toUpperCase() : null;
           if(validCode && typed === validCode){
             try{ await updateDoc(userRef, { accessGranted: true }); }catch(e){}
