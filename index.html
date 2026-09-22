@@ -135,6 +135,17 @@
   }
   .challenge-check.done{ border-color: var(--silver); color: var(--silver-bright); }
 
+  .custom-add-row{ margin: 0 24px 12px; display:flex; gap: 8px; }
+  .custom-cat-select{
+    background: var(--bg-panel); border: 1px solid var(--line); border-radius: 4px;
+    color: var(--bone); font-family:'Inter', sans-serif; font-size: 11.5px; padding: 0 8px; outline:none;
+  }
+  .custom-delete-btn{
+    background:none; border: 1px solid var(--line); color: var(--bone-dim);
+    border-radius: 4px; font-size: 12px; padding: 5px 9px; cursor:pointer; margin-left: 6px;
+  }
+  .challenge-item .ci-actions{ display:flex; align-items:center; flex-shrink:0; }
+
   .history{ padding: 4px 0 0; }
   .grid{ display:grid; grid-template-columns: repeat(10, 1fr); gap: 5px; margin: 0 24px; }
   .cell{ aspect-ratio: 1; border-radius: 2px; background: var(--bg-panel); border: 1px solid var(--line); }
@@ -372,6 +383,19 @@
       <span id="arsenalProgress" style="font-size:10.5px;color:var(--bone-dim);letter-spacing:0.3px;"></span>
     </div>
     <div id="challengeGroups"></div>
+
+    <div class="section-title"><span>SEUS DESAFIOS</span></div>
+    <div class="custom-add-row">
+      <input class="share-input" id="customTitleInput" maxlength="60" placeholder="nome do seu desafio">
+      <select class="custom-cat-select" id="customCatSelect">
+        <option value="MENTE">MENTE</option>
+        <option value="CORPO">CORPO</option>
+        <option value="DISCIPLINA">DISCIPLINA</option>
+      </select>
+      <button class="share-btn" id="customAddBtn">+</button>
+    </div>
+    <div class="challenge-list" id="customChallengeList"></div>
+    <div class="mural-empty" id="customEmpty" style="display:none;">crie os seus próprios desafios pra treinar exatamente o que você precisa.</div>
   </section>
 
   <!-- CONQUISTA -->
@@ -594,6 +618,11 @@ const db = getFirestore(fbApp);
   const rerollBtn = document.getElementById('rerollBtn');
   const arsenalProgress = document.getElementById('arsenalProgress');
   const challengeGroups = document.getElementById('challengeGroups');
+  const customTitleInput = document.getElementById('customTitleInput');
+  const customCatSelect = document.getElementById('customCatSelect');
+  const customAddBtn = document.getElementById('customAddBtn');
+  const customChallengeList = document.getElementById('customChallengeList');
+  const customEmpty = document.getElementById('customEmpty');
   const badgeGrid = document.getElementById('badgeGrid');
   const badgeProgress = document.getElementById('badgeProgress');
   const shareInput = document.getElementById('shareInput');
@@ -625,6 +654,7 @@ const db = getFirestore(fbApp);
   let reactedSet = new Set();
   let completedSet = new Set();
   let statTotals = { m: 0, c: 0, d: 0 };
+  let customChallenges = [];
   let arsenalMastered = false;
   let hasShared = false;
   let featuredIndex = dayIndex() % challenges.length;
@@ -653,6 +683,34 @@ const db = getFirestore(fbApp);
     arsenalProgress.textContent = completedSet.size + '/' + challenges.length + ' HOJE';
   }
   const catKeyMap = { 'MENTE':'m', 'CORPO':'c', 'DISCIPLINA':'d' };
+
+  async function toggleChallenge(id, cat){
+    const catKey = catKeyMap[cat];
+    if(completedSet.has(id)){
+      completedSet.delete(id);
+      statTotals[catKey] = Math.max(0, statTotals[catKey] - 1);
+    } else {
+      completedSet.add(id);
+      statTotals[catKey] = (statTotals[catKey] || 0) + 1;
+      if(challenges.every(c => completedSet.has(c.id)) && !arsenalMastered){
+        arsenalMastered = true;
+        try{ await updateDoc(userRef, { arsenalMasteredEver: true }); }catch(e){}
+      }
+    }
+    try{
+      await updateDoc(userRef, {
+        completedToday: Array.from(completedSet),
+        completedDate: todayKey(),
+        statTotals: statTotals
+      });
+    }catch(e){}
+    updateArsenalProgress();
+    renderChallengeGroups();
+    renderCustomChallenges();
+    renderBadges();
+    renderStatusWindow();
+  }
+
   function renderChallengeGroups(){
     challengeGroups.innerHTML = '';
     categories.forEach(cat => {
@@ -671,37 +729,64 @@ const db = getFirestore(fbApp);
           '<div class="ci-body"><span>' + c.title + '</span></div>' +
           '<button class="challenge-check' + (done ? ' done' : '') + '">' + (done ? '✓ VENCIDO' : 'MARCAR') + '</button>';
         item.querySelector('.ci-body').appendChild(document.createTextNode(c.text));
-        const btn = item.querySelector('.challenge-check');
-        btn.addEventListener('click', async () => {
-          const catKey = catKeyMap[c.cat];
-          if(completedSet.has(c.id)){
-            completedSet.delete(c.id);
-            statTotals[catKey] = Math.max(0, statTotals[catKey] - 1);
-          } else {
-            completedSet.add(c.id);
-            statTotals[catKey] = (statTotals[catKey] || 0) + 1;
-            if(completedSet.size >= challenges.length && !arsenalMastered){
-              arsenalMastered = true;
-              try{ await updateDoc(userRef, { arsenalMasteredEver: true }); }catch(e){}
-            }
-          }
-          try{
-            await updateDoc(userRef, {
-              completedToday: Array.from(completedSet),
-              completedDate: todayKey(),
-              statTotals: statTotals
-            });
-          }catch(e){}
-          updateArsenalProgress();
-          renderChallengeGroups();
-          renderBadges();
-          renderStatusWindow();
-        });
+        item.querySelector('.challenge-check').addEventListener('click', () => toggleChallenge(c.id, c.cat));
         list.appendChild(item);
       });
       challengeGroups.appendChild(list);
     });
   }
+
+  // ---- Seus desafios (personalizados) ----
+  async function saveCustomChallenges(){
+    try{ await updateDoc(userRef, { customChallenges: customChallenges }); }catch(e){}
+  }
+  function renderCustomChallenges(){
+    customChallengeList.innerHTML = '';
+    if(customChallenges.length === 0){
+      customEmpty.style.display = 'block';
+      return;
+    }
+    customEmpty.style.display = 'none';
+    customChallenges.forEach(c => {
+      const done = completedSet.has(c.id);
+      const item = document.createElement('div');
+      item.className = 'challenge-item' + (done ? ' done' : '');
+      item.innerHTML =
+        '<div class="ci-body"><span>' + c.cat + '</span></div>' +
+        '<div class="ci-actions">' +
+          '<button class="challenge-check' + (done ? ' done' : '') + '">' + (done ? '✓ VENCIDO' : 'MARCAR') + '</button>' +
+          '<button class="custom-delete-btn">×</button>' +
+        '</div>';
+      item.querySelector('.ci-body').appendChild(document.createTextNode(c.title));
+      item.querySelector('.challenge-check').addEventListener('click', () => toggleChallenge(c.id, c.cat));
+      item.querySelector('.custom-delete-btn').addEventListener('click', async () => {
+        if(completedSet.has(c.id)){
+          completedSet.delete(c.id);
+          const catKey = catKeyMap[c.cat];
+          statTotals[catKey] = Math.max(0, statTotals[catKey] - 1);
+          try{
+            await updateDoc(userRef, { completedToday: Array.from(completedSet), completedDate: todayKey(), statTotals: statTotals });
+          }catch(e){}
+        }
+        customChallenges = customChallenges.filter(x => x.id !== c.id);
+        await saveCustomChallenges();
+        renderCustomChallenges();
+        renderBadges();
+        renderStatusWindow();
+      });
+      customChallengeList.appendChild(item);
+    });
+  }
+  customAddBtn.addEventListener('click', async () => {
+    const title = customTitleInput.value.trim();
+    if(!title) return;
+    const cat = customCatSelect.value;
+    const id = 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+    customChallenges.push({ id, title, cat });
+    await saveCustomChallenges();
+    customTitleInput.value = '';
+    renderCustomChallenges();
+  });
 
   // ---- Conquistas ----
   function getBadgeDefs(bestStreak){
@@ -1083,6 +1168,7 @@ const db = getFirestore(fbApp);
     statTotals = data.statTotals || { m: 0, c: 0, d: 0 };
     arsenalMastered = !!data.arsenalMasteredEver;
     completedSet = (data.completedDate === todayKey()) ? new Set(data.completedToday || []) : new Set();
+    customChallenges = data.customChallenges || [];
     reactedSet = new Set(data.reacted || []);
     hasShared = !!data.hasShared;
     callsign = data.callsign || null;
@@ -1091,6 +1177,7 @@ const db = getFirestore(fbApp);
     renderFeatured();
     updateArsenalProgress();
     renderChallengeGroups();
+    renderCustomChallenges();
 
     if(callsign){
       profileName.textContent = callsign.toUpperCase();
