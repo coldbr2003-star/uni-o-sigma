@@ -519,9 +519,11 @@ const db = getFirestore(fbApp);
   const challenges = [
     { id:'m1', cat:'MENTE', title:'CORTE A DISTRAÇÃO', text:'Elimine hoje uma distração que te afasta do seu objetivo — sem negociar com ela.' },
     { id:'m2', cat:'MENTE', title:'ENCARE', text:'Escreva 3 linhas sobre o que você está evitando encarar.' },
-    { id:'m3', cat:'MENTE', title:'SILÊNCIO MENTAL', text:'Passe 10 minutos sem tela nenhuma — só você e seus pensamentos.' },
-    { id:'m4', cat:'MENTE', title:'LEITURA DE GUERRA', text:'Leia algumas páginas de algo que fortalece sua mente, não que só distrai.' },
+    { id:'m3', cat:'MENTE', title:'MEDITAÇÃO DO GUERREIRO', text:'10 minutos sentado, em silêncio, respirando com atenção — sem se mexer, sem fugir do desconforto.' },
+    { id:'m4', cat:'MENTE', title:'PÁGINAS DE GUERRA', text:'Leia 20 páginas de algo que fortalece sua mente, não que só distrai.' },
     { id:'m5', cat:'MENTE', title:'ZERO RECLAMAÇÃO', text:'Passe o dia sem reclamar em voz alta. Observe o quanto isso pesa.' },
+    { id:'m6', cat:'MENTE', title:'SILÊNCIO SEM TELA', text:'Passe 30 minutos sem celular nenhum — só você e seus pensamentos.' },
+    { id:'m7', cat:'MENTE', title:'REFLEXÃO DE GUERRA', text:'Depois de ler, escreva 2 linhas sobre o que aquilo muda em você.' },
     { id:'c1', cat:'CORPO', title:'VONTADE NÃO CONVIDADA', text:'Treine mesmo sem vontade. A vontade não é convidada, é consequência.' },
     { id:'c2', cat:'CORPO', title:'FRIO NO OSSO', text:'Termine o banho de hoje com água fria. Endureça a mente antes do corpo.' },
     { id:'c3', cat:'CORPO', title:'MADRUGADA', text:'Acorde uma hora mais cedo do que o de costume.' },
@@ -970,12 +972,13 @@ const db = getFirestore(fbApp);
     const mente = computeCatStat('m');
     const corpo = computeCatStat('c');
     const disciplina = computeCatStat('d');
-    statBarMente.style.width = (mente / 5 * 100) + '%';
-    statBarCorpo.style.width = (corpo / 5 * 100) + '%';
-    statBarDisciplina.style.width = (disciplina / 5 * 100) + '%';
-    statValMente.textContent = mente + '/5';
-    statValCorpo.textContent = corpo + '/5';
-    statValDisciplina.textContent = disciplina + '/5';
+    const statCap = 30;
+    statBarMente.style.width = Math.min(100, mente / statCap * 100) + '%';
+    statBarCorpo.style.width = Math.min(100, corpo / statCap * 100) + '%';
+    statBarDisciplina.style.width = Math.min(100, disciplina / statCap * 100) + '%';
+    statValMente.textContent = mente;
+    statValCorpo.textContent = corpo;
+    statValDisciplina.textContent = disciplina;
 
     if(info.level > lastSeenLevel){
       lastSeenLevel = info.level;
